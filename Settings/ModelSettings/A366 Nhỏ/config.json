@@ -1,0 +1,180 @@
+{
+    "name_model": "A366 Nhỏ",
+    "shapes": {
+        "Box": [
+            102,
+            127,
+            3488,
+            2524
+        ],
+        "A0": [
+            638,
+            289,
+            70,
+            1115
+        ],
+        "A1": [
+            950,
+            298,
+            70,
+            1115
+        ],
+        "A2": [
+            1251,
+            294,
+            70,
+            1115
+        ],
+        "A3": [
+            1569,
+            294,
+            70,
+            1115
+        ],
+        "A4": [
+            1886,
+            294,
+            70,
+            1115
+        ],
+        "A5": [
+            2203,
+            294,
+            70,
+            1115
+        ],
+        "A6": [
+            2520,
+            294,
+            70,
+            1115
+        ],
+        "A7": [
+            2837,
+            294,
+            70,
+            1115
+        ],
+        "A8": [
+            3154,
+            294,
+            70,
+            1115
+        ],
+        "B0": [
+            511,
+            1376,
+            70,
+            1124
+        ],
+        "B1": [
+            828,
+            1376,
+            70,
+            1124
+        ],
+        "B2": [
+            1145,
+            1376,
+            70,
+            1124
+        ],
+        "B3": [
+            1461,
+            1376,
+            70,
+            1124
+        ],
+        "B4": [
+            1778,
+            1376,
+            70,
+            1124
+        ],
+        "B5": [
+            2095,
+            1376,
+            70,
+            1124
+        ],
+        "B6": [
+            2411,
+            1376,
+            70,
+            1124
+        ],
+        "B7": [
+            2728,
+            1376,
+            70,
+            1124
+        ],
+        "B8": [
+            3045,
+            1376,
+            70,
+            1124
+        ]
+    },
+    "model_ai": {
+        "model_name": "A366_nho_2.pt",
+        "classify_name": "sub_almus_cls_ver5.pt",
+        "use_classify": false,
+        "agnostic_nms": true,
+        "threshold_set": 70,
+        "threshold_box": 100,
+        "conf": 0.12,
+        "iou": 0.5,
+        "max_det": 19
+    },
+    "hardware": {
+        "server": {
+            "ip": "127.0.0.1",
+            "port": "3000"
+        },
+        "camera": {
+            "id": "02J87634225",
+            "feature": "Feature1.ini",
+            "name": "Webcam",
+            "delay": 0
+        },
+        "lighting": {
+            "comport": "COM1",
+            "baudrate": "19200",
+            "channel_value_0": 255,
+            "channel_value_1": 255,
+            "channel_value_2": 255,
+            "channel_value_3": 255,
+            "controller": "DCPController",
+            "delay": 50
+        },
+        "system": {
+            "log_dir": "",
+            "log_size": 0.0,
+            "auto_start": false,
+            "database_path": "database.db"
+        },
+        "io": {
+            "comport": "COM3",
+            "baudrate": "50",
+            "delay": ""
+        },
+        "scanner": {
+            "comport": "COM3",
+            "baudrate": "50"
+        },
+        "send_data": {
+            "comport": "COM6",
+            "baudrate": "115200"
+        }
+    },
+    "calibration": {
+        "use_calib": true,
+        "model_get_center": "segmention_get_center.pt",
+        "center_origin_x": -84.74,
+        "center_origin_y": 62.49,
+        "swap_xy": true,
+        "negative_x": false,
+        "negative_y": false
+    }
+}

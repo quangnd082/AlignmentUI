@@ -1,0 +1,7 @@
+pyuic5 -x .\res\UI\mainwindow.ui -o .\res\UI\mainwindow.py
+C:\\Users\\DTC\\Desktop\\AutoBlendingFPCB\\.venv\\Scripts\\pyinstaller main.spec
+.\.venv\Scripts\activate
+pip freeze > requirements.txt
+git push branch_sub main -f
+git rm -r --cached + file_path
+https://colab.research.google.com/drive/16vBpueqSUDGcpA8__I-shPFtxB-EFxkf?usp=sharing

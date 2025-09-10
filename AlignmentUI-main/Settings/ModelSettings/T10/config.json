@@ -1,0 +1,160 @@
+{
+    "name_model": "T10",
+    "shapes": {
+        "A": [
+            726,
+            308,
+            231,
+            1321
+        ],
+        "A0": [
+            1109,
+            298,
+            231,
+            1334
+        ],
+        "A1": [
+            1489,
+            278,
+            233,
+            1353
+        ],
+        "A2": [
+            1886,
+            291,
+            224,
+            1332
+        ],
+        "A3": [
+            2269,
+            287,
+            249,
+            1337
+        ],
+        "A4": [
+            2670,
+            278,
+            222,
+            1341
+        ],
+        "A5": [
+            3056,
+            278,
+            247,
+            1343
+        ],
+        "A6": [
+            3450,
+            280,
+            247,
+            1339
+        ],
+        "A7": [
+            3838,
+            275,
+            236,
+            1337
+        ],
+        "A8": [
+            570,
+            1557,
+            243,
+            1334
+        ],
+        "A9": [
+            957,
+            1567,
+            243,
+            1321
+        ],
+        "A10": [
+            1349,
+            1555,
+            240,
+            1339
+        ],
+        "A11": [
+            1739,
+            1553,
+            233,
+            1341
+        ],
+        "A12": [
+            2125,
+            1548,
+            243,
+            1346
+        ],
+        "A13": [
+            2524,
+            1555,
+            240,
+            1339
+        ],
+        "A14": [
+            2911,
+            1548,
+            243,
+            1339
+        ],
+        "A15": [
+            3315,
+            1553,
+            231,
+            1339
+        ],
+        "A16": [
+            3702,
+            1548,
+            222,
+            1341
+        ]
+    },
+    "model_ai": {
+        "model_name": "sub_almus.pt",
+        "classes_name": "labels.txt",
+        "threshold_set": 50,
+        "threshold_box": 100
+    },
+    "hardware": {
+        "server": {
+            "ip": "127.0.0.1",
+            "port": "3000"
+        },
+        "camera": {
+            "id": "",
+            "feature": "Feature1.ini",
+            "name": "HIK",
+            "delay": 0
+        },
+        "lighting": {
+            "comport": "COM3",
+            "baudrate": "50",
+            "channel_value_0": 255,
+            "channel_value_1": 255,
+            "channel_value_2": 255,
+            "channel_value_3": 255,
+            "controller": "LCPController",
+            "delay": 200
+        },
+        "system": {
+            "log_dir": "",
+            "log_size": 0.0,
+            "auto_start": false,
+            "database_path": "database.db"
+        },
+        "io": {
+            "comport": "COM3",
+            "baudrate": "50",
+            "delay": ""
+        },
+        "scanner": {
+            "comport": "COM3",
+            "baudrate": "50"
+        },
+        "send_data": {
+            "comport": "COM3",
+            "baudrate": "50"
+        }
+    }
+}

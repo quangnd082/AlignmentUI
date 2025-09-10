@@ -1,0 +1,180 @@
+{
+    "name_model": "T99",
+    "shapes": {
+        "Box": [
+            54,
+            284,
+            4006,
+            3096
+        ],
+        "A0": [
+            427,
+            585,
+            374,
+            1323
+        ],
+        "A1": [
+            802,
+            585,
+            374,
+            1323
+        ],
+        "A2": [
+            1177,
+            585,
+            374,
+            1323
+        ],
+        "A3": [
+            1551,
+            585,
+            374,
+            1323
+        ],
+        "A4": [
+            1926,
+            585,
+            374,
+            1323
+        ],
+        "A5": [
+            2301,
+            585,
+            374,
+            1323
+        ],
+        "A6": [
+            2676,
+            585,
+            374,
+            1323
+        ],
+        "A7": [
+            3051,
+            585,
+            374,
+            1323
+        ],
+        "A8": [
+            3425,
+            585,
+            374,
+            1323
+        ],
+        "B0": [
+            295,
+            1837,
+            373,
+            1339
+        ],
+        "B1": [
+            669,
+            1837,
+            373,
+            1339
+        ],
+        "B2": [
+            1042,
+            1837,
+            373,
+            1339
+        ],
+        "B3": [
+            1416,
+            1837,
+            373,
+            1339
+        ],
+        "B4": [
+            1790,
+            1837,
+            373,
+            1339
+        ],
+        "B5": [
+            2164,
+            1837,
+            373,
+            1339
+        ],
+        "B6": [
+            2538,
+            1837,
+            373,
+            1339
+        ],
+        "B7": [
+            2912,
+            1837,
+            373,
+            1339
+        ],
+        "B8": [
+            3286,
+            1837,
+            373,
+            1339
+        ]
+    },
+    "model_ai": {
+        "model_name": "sub_almus_ver4_obj_202510718.pt",
+        "classify_name": "sub_almus_cls_ver5.pt",
+        "use_classify": false,
+        "agnostic_nms": false,
+        "threshold_set": 50,
+        "threshold_box": 50,
+        "conf": 0.1,
+        "iou": 1.0,
+        "max_det": 100
+    },
+    "hardware": {
+        "server": {
+            "ip": "127.0.0.1",
+            "port": "3000"
+        },
+        "camera": {
+            "id": "02J87634225",
+            "feature": "Feature1.ini",
+            "name": "HIK",
+            "delay": 0
+        },
+        "lighting": {
+            "comport": "COM14",
+            "baudrate": "19200",
+            "channel_value_0": 10,
+            "channel_value_1": 10,
+            "channel_value_2": 10,
+            "channel_value_3": 10,
+            "controller": "DCPController",
+            "delay": 200
+        },
+        "system": {
+            "log_dir": "",
+            "log_size": 0.0,
+            "auto_start": false,
+            "database_path": "database.db"
+        },
+        "io": {
+            "comport": "COM3",
+            "baudrate": "50",
+            "delay": ""
+        },
+        "scanner": {
+            "comport": "COM3",
+            "baudrate": "50"
+        },
+        "send_data": {
+            "comport": "COM3",
+            "baudrate": "9600"
+        }
+    },
+    "calibration": {
+        "use_calib": false,
+        "model_get_center": "",
+        "center_origin_x": 0.0,
+        "center_origin_y": 0.0,
+        "swap_xy": false,
+        "negative_x": false,
+        "negative_y": false
+    }
+}
