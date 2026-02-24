@@ -1,6 +1,7 @@
-from cameras.base_camera import *
-from cameras.MVSImport.MvCameraControl_class import *
-from cameras.MVSImport.CamOperation_class import *
+from Libs.cameras.MVSImport.CameraParams_header import MV_FRAME_OUT_INFO_EX
+from Libs.cameras.base_camera import *
+from Libs.cameras.MVSImport.MvCameraControl_class import *
+from Libs.cameras.MVSImport.CamOperation_class import *
 
 
 class HIK(BaseCamera):

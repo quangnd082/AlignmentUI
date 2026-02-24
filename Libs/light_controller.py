@@ -122,7 +122,7 @@ class LCPController():
 
 
 if __name__ == "__main__":
-    lcp = LCPController(com="COM3")
+    lcp = LCPController(com="COM11")
     print(lcp.open())
     lcp.set_light_value(1, 500)
     time.sleep(3)

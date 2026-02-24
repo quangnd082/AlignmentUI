@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         
-        self.setWindowTitle('Trung')
+        self.setWindowTitle('Quang')
         
         self.init_setup_ui()
 
