@@ -1,20 +1,19 @@
 /* ==================== QPushButton Styles (Responsive) ==================== */
 /* Retain original styles for explicitly colored buttons */
 QPushButton#but_start_auto {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #34C759, stop:1 #28A745);
+    background: #2ecc71;
+    border: 1px solid #27ae60;
     color: white;
-    border-radius: 0.5em;
-    padding: 0.4em;
-    border: none;
-    font-weight: bold;
-    min-height: 1.5em;
-    min-width: 4em;
+    border-radius: 0.6em;
+    padding: 0.5em;
+    font-weight: 600;
+    min-height: 1.8em;
 }
 QPushButton#but_start_auto:hover {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #40D965, stop:1 #34C759);
+    background: #38d97a;
 }
 QPushButton#but_start_auto:pressed {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #28A745, stop:1 #1E7B33);
+    background: #27ae60;
 }
 QPushButton#but_start_auto:disabled {
     background: #4B5E67;

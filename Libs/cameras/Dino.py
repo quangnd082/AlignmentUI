@@ -7,8 +7,8 @@ from Libs.cameras.base_camera import *
 class DINO(BaseCamera):
 
     def __init__(self, config=None) -> None:
-        super().__init__(config=config)
 
+        # MUST init BEFORE BaseCamera (tránh bị overwrite)
         self._dnx = None
         self._device_index = 0
 
@@ -22,7 +22,9 @@ class DINO(BaseCamera):
         self._auto_led = False
         self._led_state = False
 
-    # ---------------- REQUIRED ----------------
+        super().__init__(config=config)
+
+    # ================= REQUIRED =================
 
     def get_error(self) -> str:
         return self._error
@@ -57,7 +59,7 @@ class DINO(BaseCamera):
     def get_config(self):
         return self._config
 
-    # ---------------- CREATE DEVICE ----------------
+    # ================= CREATE DEVICE =================
 
     def create_device(self):
         try:
@@ -74,7 +76,7 @@ class DINO(BaseCamera):
                 self._error = ERR_NOT_FOUND_DEVICE
                 return
 
-            device_id = self._config.get("id", 0)
+            device_id = int(self._config.get("id", 0))
             self._device_index = device_id if device_id < count else 0
 
             self._dnx.SetVideoDeviceIndex(self._device_index)
@@ -82,15 +84,18 @@ class DINO(BaseCamera):
             # Auto LED flag
             self._auto_led = self._config.get("auto_led", False)
 
+            # Open stream via DirectShow
             self._cap = cv2.VideoCapture(self._device_index, cv2.CAP_DSHOW)
             self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             self._model_name = f"DINO_{self._device_index}"
+            self._error = NO_ERROR
 
-        except:
+        except Exception as ex:
+            print("DINO create error:", ex)
             self._error = ERR_CREATE_DEVICE_FAIL
 
-    # ---------------- OPEN / CLOSE ----------------
+    # ================= OPEN / CLOSE =================
 
     def open(self) -> bool:
         if self._cap is None:
@@ -106,7 +111,7 @@ class DINO(BaseCamera):
         except:
             return False
 
-    # ---------------- STREAM ----------------
+    # ================= STREAM =================
 
     def start_grabbing(self) -> bool:
         if self._running:
@@ -129,20 +134,26 @@ class DINO(BaseCamera):
                 with self._lock:
                     self._latest_frame = frame
 
-    # ---------------- LED CONTROL ----------------
+    # ================= LED CONTROL =================
 
     def _led_on(self):
         if self._dnx and not self._led_state:
-            self._dnx.SetLEDState(self._device_index, 1)
-            self._led_state = True
-            time.sleep(0.02)  # LED stabilize
+            try:
+                self._dnx.SetLEDState(self._device_index, 1)
+                self._led_state = True
+                time.sleep(0.02)
+            except:
+                pass
 
     def _led_off(self):
         if self._dnx and self._led_state:
-            self._dnx.SetLEDState(self._device_index, 0)
-            self._led_state = False
+            try:
+                self._dnx.SetLEDState(self._device_index, 0)
+                self._led_state = False
+            except:
+                pass
 
-    # ---------------- GRAB ----------------
+    # ================= GRAB =================
 
     def grab(self, timeout=2.0):
 
@@ -168,4 +179,4 @@ class DINO(BaseCamera):
                 self._error = ERR_GRAB_FAIL
                 return self._error, None
 
-            time.sleep(0.01)
+            time.sleep(0.005)

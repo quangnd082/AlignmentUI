@@ -16,7 +16,7 @@ class SerialReceiver(AbstractSerialReceiver):
             self.ser = serial.Serial(port, baudrate, timeout=1)
             self.scanner_logger.info(f'Connected to {port} at {baudrate}')
             return True
-        except serial.SerialException as e:
+        except serial.serial_for_url() as e:
             self.scanner_logger.error(f"Failed to connect COM: {e}")
             return False
 

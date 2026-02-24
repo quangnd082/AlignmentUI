@@ -1,6 +1,7 @@
 from tkinter import E
 import cameras
 from cameras import Webcam, HIK, SODA
+from cameras.Dino import DINO
 import cv2
 from Logging import Logger
 
@@ -16,8 +17,12 @@ class Camera:
         "id": 0,
         "feature": ""
     }):
-        if name == 'HIK':
-            self.camera = HIK(config=config)
+        if name == 'DINO':
+            self.camera = DINO(config={
+                    "dll_path": "DNX64.dll",
+                    "id": int(config.get("id", 0)),
+                    "auto_led": True
+                })
         elif name == 'SODA':
             self.camera = SODA(config=config)
         else:

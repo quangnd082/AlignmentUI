@@ -2,13 +2,13 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from Logging import Logger
-from serial import Serial
+import serial
 import time
 
 class DCPController:
     def __init__(self):
         super().__init__()
-        self.comport: Serial = None
+        self.comport: serial = None
         self.light_logger = Logger('DCPController')
 
     def is_open(self):
@@ -18,7 +18,7 @@ class DCPController:
         self.close()
         time.sleep(0.1)
         try:
-            self.comport = Serial(port=com, baudrate=baud)
+            self.comport = serial(port=com, baudrate=baud)
             self.light_logger.info(f"Opened COM port {com}")
             return self.comport.is_open
         except Exception as e:
@@ -63,7 +63,7 @@ class DCPController:
 class LCPController():
     def __init__(self):
         super().__init__()
-        self.comport: Serial = None
+        self.comport: serial = None
         self.light_logger = Logger('LCPController')
 
     def is_open(self):
@@ -101,7 +101,7 @@ class LCPController():
         self.close()
         time.sleep(0.1)
         try:
-            self.comport = Serial(port=com, baudrate=baud)
+            self.comport = serial(port=com, baudrate=baud)
             self.light_logger.info(f"Opened COM port {com}")
             return self.comport.is_open
         except Exception as e:

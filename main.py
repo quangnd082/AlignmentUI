@@ -33,9 +33,10 @@ from functools import partial
 from types import SimpleNamespace
 import re
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow,Ui_MainWindow):
     showDstSignal = pyqtSignal(Canvas, np.ndarray)
     showResultStatus = pyqtSignal(str)
+    showResultRate = pyqtSignal(str)
     checkStarted = pyqtSignal(bool)
     writeLog = pyqtSignal(RESULT)
     setImageTest = pyqtSignal(np.ndarray)
@@ -43,46 +44,46 @@ class MainWindow(QMainWindow):
     readComSendData = pyqtSignal(str)
     showEffect = pyqtSignal(int)
     hideEffect = pyqtSignal(int)
-    
+
     def __init__(self):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
-        self.setWindowTitle('Quang')
-        
+        self.setWindowIcon(QIcon("Assets/ai.png"))
+        self.setWindowTitle('MLBGInspection')
+
         self.init_setup_ui()
 
         self.init_class_variable()
         self.init_bool_variable()
         self.init_set_property()
-        
+
         self.connect_signal_and_slot()
-        
+
         self.connect_action()
-        
+
         self.set_layout_canvas()
-        
+
         self.upload_model_ai()
-        
+
         self.upload_feature_camera()
-        
+
         self.upload_model_names()
-                
+
         self.refresh_ports()
-        
+
         self.set_arUco_dictionary()
-        
+
         self.loadSettings()
-        
+
         self.load_model_change_teaching()
-        
+
         self.showMaximized()
-    
+
     def init_setup_ui(self):
         self.statusBar().addPermanentWidget(self.ui.progressBar)
         self.ui.progressBar.setVisible(False)
-    
+
     def init_class_variable(self):
         self.camera = Camera()
         self.main_logger = Logger('Main')
@@ -93,7 +94,9 @@ class MainWindow(QMainWindow):
         self.light_dcp = DCPController()
         self.log_model = QStandardItemModel()
         self.ui.list_log_view.setModel(self.log_model)
-   
+
+
+
     def init_bool_variable(self):
         self.is_open_camera = False
         self.is_connect_server = False
@@ -111,6 +114,13 @@ class MainWindow(QMainWindow):
         self.camera_thread = None
         self.camera_thread_running = False
 
+        # Biến đếm số lượng sản phẩm
+        self.count_product_total = 0
+        self.count_product_ok = 0
+        self.count_product_ng = 0
+
+        self.confirm_lock = threading.Lock()
+
     def init_set_property(self):
         self.ui.but_stop_auto.setDisabled(True)
         self.ui.but_open_camera_teaching.setProperty("status", "Open")
@@ -118,10 +128,11 @@ class MainWindow(QMainWindow):
         self.ui.but_open_com_send_data.setProperty("status", "Open")
         self.ui.but_connect_server.setProperty("status", "Open")
         self.ui.but_open_light.setProperty("status", "Open")
-    
+
     def connect_signal_and_slot(self):
         self.ui.but_start_auto.clicked.connect(self.on_click_but_start_auto)
         self.ui.but_stop_auto.clicked.connect(self.on_click_but_stop_auto)
+        self.ui.but_reset_auto.clicked.connect(self.on_click_but_reset_auto)
         self.ui.but_add.clicked.connect(self.on_click_but_add_model)
         self.ui.but_del.clicked.connect(self.on_click_but_delete_model)
         self.ui.but_save_teaching.clicked.connect(self.on_click_save_model)
@@ -162,20 +173,20 @@ class MainWindow(QMainWindow):
         self.setImageAruco.connect(self.set_image_aruco)
         self.checkStarted.connect(self.set_ui_auto_start)
         self.showResultStatus.connect(self.update_label_status)
+        self.showResultRate.connect(self.update_label_result)
         self.showEffect.connect(self.show_effect)
         self.hideEffect.connect(self.hide_effect)
         self.ui.actionResetLayout.triggered.connect(self.resetLayout)
-    
+        self.readComSendData.connect(self.com_send_data.read_data)
+
     def connect_action(self):
-        self.ui.menuView.addAction(self.ui.dock_widget_image_source.toggleViewAction())
-        self.ui.menuView.addAction(self.ui.dock_widget_image_binary.toggleViewAction())
-        
+
         actions = self.ui.menuView.actions()
         if actions:
             ui_action = actions[0]  # Action từ giao diện (ví dụ là action đầu)
             self.ui.menuView.removeAction(ui_action)  # Xóa nó khỏi vị trí ban đầu
             self.ui.menuView.addAction(ui_action)  # Thêm lại xuống cuối
-    
+
     def set_layout_canvas(self):
         self.image_source_canvas = Canvas()
         self.image_binary_canvas = Canvas()
@@ -185,62 +196,68 @@ class MainWindow(QMainWindow):
         self.image_binary_data_canvas = Canvas()
         self.image_aruco_canvas = Canvas()
         self.image_detect_aruco_canvas = Canvas()
-        
-        self.ui.layout_image_source_canvas.addWidget(WindowCanvas(self.image_source_canvas))
-        self.ui.layout_image_binary_canvas.addWidget(WindowCanvas(self.image_binary_canvas))
+
+
         self.ui.layout_auto_canvas.addWidget(WindowCanvas(self.auto_canvas))
         self.ui.layout_teaching_canvas.addWidget(WindowCanvas(self.teaching_canvas))
         self.ui.layout_image_output_canvas.addWidget(WindowCanvas(self.image_binary_data_canvas))
         self.ui.layout_image_input_canvas.addWidget(WindowCanvas(self.image_input_data_canvas))
         self.ui.layout_image_capture_aruco.addWidget(WindowCanvas(self.image_aruco_canvas))
         self.ui.layout_image_detect_aruco.addWidget(WindowCanvas(self.image_detect_aruco_canvas))
-    
-    def on_click_but_start_auto(self):        
+
+    def on_click_but_start_auto(self):
         self.ui.combo_box_model_name_teaching.setCurrentIndex(self.ui.combo_box_model_name_auto.currentIndex())
-        
+
         model_name = f'Settings/ModelSettings/{self.ui.combo_box_model_name_auto.currentText()}'
-        
+
         config = self.get_config_auto(model_name)
-        
+
         self.showEffect.emit(70)
-        
+
         threading.Thread(target=self.start_auto, args=(config,), daemon=True).start()
-        
+
     def on_click_but_stop_auto(self):
         self.started = False
-        
+
         self.checkStarted.emit(self.started)
-        
+
         self.close_camera_teaching()
         self.close_light_teaching()
         self.close_server_teaching()
-        
+
         self.stop_process()
-        
-    
+
     def on_click_but_reset_auto(self):
-        pass
-    
+        self.count_product_total = 0
+        self.count_product_ok = 0
+        self.count_product_ng = 0
+
+        self.ui.label_ok.setText('0')
+        self.ui.label_ng.setText('0')
+        self.ui.label_total.setText('0')
+        self.ui.label_rate.setText('0')
+
+
     def on_click_but_add_model(self):
         name_model = self.ui.combo_box_model_name_teaching.currentText()
-        
+
         if name_model and self.ui.combo_box_model_name_teaching.findText(name_model) == -1:
             reply = QMessageBox.question(self, 'Question', f'Do you want to add model {name_model}?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.No:
                 return
-            
+
             self.ui.combo_box_model_name_teaching.addItem(name_model)
             self.ui.combo_box_model_name_auto.addItem(name_model)
             self.ui.combo_box_model_name_data.addItem(name_model)
-            
+
             config = self.get_config_from_ui()
             config_dict = json.loads(json.dumps(config, default=lambda x: vars(x)))
             self.handle_file_json.add(name_model, config_dict)
-            
+
             QMessageBox.information(self, 'Information', f'Model {name_model} has been added successfully',
                                     QMessageBox.StandardButton.Close)
-            
+
             self.ui.combo_box_model_name_teaching.clearEditText()
         elif name_model == '':
             QMessageBox.warning(self, 'Warning', f'Model name not entered yet', QMessageBox.StandardButton.Close)
@@ -263,38 +280,38 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.No:
             return
         self.handle_file_json.delete(name_model)
-        
+
         index = self.ui.combo_box_model_name_teaching.currentIndex()
         self.ui.combo_box_model_name_auto.removeItem(index)
         self.ui.combo_box_model_name_teaching.removeItem(index)
-        
+
         QMessageBox.information(self, 'Information', f'Model {name_model} has been deleted',
                                 QMessageBox.StandardButton.Close)
 
     def on_click_save_model(self):
         name_model = self.ui.combo_box_model_name_teaching.currentText()
-        
+
         index_name_model = self.ui.combo_box_model_name_teaching.findText(name_model)
-        
+
         if index_name_model == -1:
             QMessageBox.warning(self, 'Warning', f'Model {name_model} does not exist',
                                 QMessageBox.StandardButton.Close)
             return
-        
+
         config = self.get_config_from_ui()
         config_dict = json.loads(json.dumps(config, default=lambda x: vars(x)))
-        
+
         reply = QMessageBox.question(self, 'Question', f'Do you want to save the model {name_model}?',
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+
         if reply == QMessageBox.StandardButton.No:
             return
-        
+
         self.handle_file_json.save(name_model, config_dict)
-        
+
         QMessageBox.information(self, 'Information', f'Model {name_model} has been successfully updated',
                                 QMessageBox.StandardButton.Close)
-    
+
     def on_click_but_open_camera_teaching(self):
         if self.ui.but_open_camera_teaching.property("status") == "Open":
             if self.open_camera_teaching():
@@ -302,12 +319,12 @@ class MainWindow(QMainWindow):
                 self.ui.but_open_camera_teaching.setText('Close')
             else:
                 return
-            
+
         self.style().unpolish(self.ui.but_open_camera_teaching)
         self.style().polish(self.ui.but_open_camera_teaching)
         self.style().unpolish(self.ui.but_start_camera_teaching)
         self.style().polish(self.ui.but_start_camera_teaching)
-        
+
         self.ui.but_open_camera_teaching.clicked.disconnect()
         self.ui.but_open_camera_teaching.clicked.connect(self.on_click_but_close_camera_teaching)
 
@@ -318,21 +335,21 @@ class MainWindow(QMainWindow):
             self.ui.but_open_camera_teaching.setProperty("status", "Open")
             self.ui.but_start_camera_teaching.setProperty("status", "Open")
             self.ui.but_start_camera_teaching.setText('Start')
-        
+
         self.style().unpolish(self.ui.but_open_camera_teaching)
         self.style().polish(self.ui.but_open_camera_teaching)
         self.style().unpolish(self.ui.but_start_camera_teaching)
         self.style().polish(self.ui.but_start_camera_teaching)
-        
+
         self.ui.but_open_camera_teaching.clicked.disconnect()
         self.ui.but_open_camera_teaching.clicked.connect(self.on_click_but_open_camera_teaching)
-    
+
     def on_click_but_start_camera_teaching(self):
         if self.ui.but_start_camera_teaching.property("status") == "Open":
             if not self.is_open_camera:
                 self.main_logger.warning('Please open camera first')
                 return
-                
+
             self.ui.but_start_camera_teaching.setProperty("status", "Close")
             self.ui.but_start_camera_teaching.setText('Stop')
             self.start_camera_teaching()
@@ -340,10 +357,10 @@ class MainWindow(QMainWindow):
             self.ui.but_start_camera_teaching.setText('Start')
             self.ui.but_start_camera_teaching.setProperty("status", "Open")
             self.stop_camera_teaching()
-                
+
         self.style().unpolish(self.ui.but_start_camera_teaching)
         self.style().polish(self.ui.but_start_camera_teaching)
-    
+
     def on_click_but_capture_teaching(self):
         try:
             image_capture = None
@@ -353,20 +370,20 @@ class MainWindow(QMainWindow):
                 else:
                     QMessageBox.warning(self, 'Warning', 'No image currently displayed to capture')
                     return
-                    
+
             elif self.is_open_camera:
                 image_capture = self.camera.get_frame()
                 if image_capture is None:
                     QMessageBox.warning(self, 'Warning', 'Failed to capture image from camera')
-                    return                
+                    return
             else:
                 QMessageBox.information(self, 'Info', 'Please open camera or load an image first')
                 return
-            
+
             if image_capture is None or image_capture.size == 0:
                 QMessageBox.critical(self, 'Error', 'Failed to capture valid image')
                 return
-            
+
             config = self.get_config_from_ui()
             if config.calibration.use_calib:
                 camera_file = 'Settings/CalibrationSettings/camera_matrix.npy'
@@ -377,47 +394,51 @@ class MainWindow(QMainWindow):
                 if os.path.exists(camera_file):
                     camera_matrix = np.load(camera_file)
                 else:
-                    QMessageBox.critical(self, 'Calibration Error', 'Camera matrix file not found. Please check calibration.')
+                    QMessageBox.critical(self, 'Calibration Error',
+                                         'Camera matrix file not found. Please check calibration.')
                     return
 
                 if os.path.exists(dist_file):
                     dist_coeffs = np.load(dist_file)
                 else:
-                    QMessageBox.critical(self, 'Calibration Error', 'Distortion coefficients file not found. Please check calibration.')
+                    QMessageBox.critical(self, 'Calibration Error',
+                                         'Distortion coefficients file not found. Please check calibration.')
                     return
-                
+
                 if camera_matrix is None or dist_coeffs is None:
-                    QMessageBox.critical(self, 'Calibration Error', 'Invalid calibration matrices. Please check calibration.')
+                    QMessageBox.critical(self, 'Calibration Error',
+                                         'Invalid calibration matrices. Please check calibration.')
                     return
-                
+
                 try:
                     image_capture = undistort_image(image_capture, camera_matrix, dist_coeffs)
                     if image_capture is None:
-                        QMessageBox.critical(self, 'Calibration Error', 'Failed to undistort image. Please check calibration matrices.')
+                        QMessageBox.critical(self, 'Calibration Error',
+                                             'Failed to undistort image. Please check calibration matrices.')
                         return
                 except Exception as undistort_ex:
                     QMessageBox.critical(self, 'Calibration Error', f'Undistortion failed: {str(undistort_ex)}')
                     return
-                
+
             today_folder = datetime.now().strftime('%Y_%m_%d')
             model_name = self.ui.combo_box_model_name_teaching.currentText()
-            
+
             if not model_name:
                 QMessageBox.warning(self, 'Warning', 'Please select a model name first')
                 return
-            
+
             self.main_logger.log_image(
                 model_name,
                 image_capture,
                 image_folder=f'Images/ImageCapture/{today_folder}/{model_name}'
             )
-            
+
             set_canvas(self.teaching_canvas, image_capture)
             self.setImageTest.emit(image_capture)
-            
+
         except Exception as ex:
             QMessageBox.critical(self, 'Error', f'Capture failed: {str(ex)}')
-    
+
     def on_click_but_open_image_teaching(self):
         if self.ui.but_start_camera_teaching.property("status") == "Close":
             self.is_showing_camera = False
@@ -425,132 +446,132 @@ class MainWindow(QMainWindow):
             self.ui.but_start_camera_teaching.setText('Start')
             self.style().unpolish(self.ui.but_start_camera_teaching)
             self.style().polish(self.ui.but_start_camera_teaching)
-        
+
         options = QFileDialog.Options()
-        file_open_image, _ = QFileDialog.getOpenFileName(self, "Choose image", "", 
-                                                  "Images (*.png *.jpg *.jpeg *.bmp *.gif)", 
-                                                  options=options)
+        file_open_image, _ = QFileDialog.getOpenFileName(self, "Choose image", "",
+                                                         "Images (*.png *.jpg *.jpeg *.bmp *.gif)",
+                                                         options=options)
         if file_open_image:
             image = cv2.imread(file_open_image)
             set_canvas(self.teaching_canvas, image)
             self.setImageTest.emit(image)
-    
+
     def on_click_but_test_teaching(self):
         try:
             if self.image_capture_test is None:
                 QMessageBox.warning(self, 'Warning', 'No test image available. Please capture an image first.')
                 return
-                
+
             config = self.get_config_from_ui()
-            
+
             name_model = self.ui.combo_box_model_name_teaching.currentText()
             name_model_ai = self.ui.combo_box_model_ai.currentText()
             name_classify_ai = self.ui.combo_box_classify_ai.currentText()
             use_classify = self.ui.check_box_use_classify.isChecked()
-            
+
             model_ai = YOLO(f'res/ModelAI/{name_model_ai}')
             classify_ai = YOLO(f'res/ModelAI/{name_classify_ai}')
-            
+
             threshold_set = self.ui.spin_box_threshold_set.value() / 100
             threshold_box = self.ui.spin_box_threshold_box.value() / 100
             conf = self.ui.spin_box_confidence.value()
             iou = self.ui.spin_box_iou.value()
             max_det = self.ui.spin_box_max_det.value()
             agnostic_nms = self.ui.check_box_agnostic_nms.isChecked()
-            
+
             image_to_process = self.image_capture_test
             matrix_H = None
             mode = self.get_detection_mode(config)
-            
+
             if config.calibration.use_calib:
                 homography_file = 'Settings/CalibrationSettings/homography_matrix.npz'
-                
+
                 try:
                     if os.path.exists(homography_file):
                         homography_data = np.load(homography_file)
                         matrix_H = homography_data.get('homography_matrix')
-                        
+
                         if matrix_H is None:
                             raise Exception('Invalid homography matrix')
                     else:
                         raise Exception('Homography matrix file not found')
-                        
+
                 except Exception as e:
                     raise Exception(f'Failed to load homography matrix: {str(e)}')
-            
+
             if use_classify:
-                result = classify_object(name_model, classify_ai, image_to_process, 
-                                    config.shapes, threshold_set, threshold_box)
+                result = classify_object(name_model, classify_ai, image_to_process,
+                                         config.shapes, threshold_set, threshold_box)
             else:
-                result = detect_object(name_model, model_ai, image_to_process, 
-                                    config.shapes, threshold_set, threshold_box, 
-                                    conf, iou, max_det, agnostic_nms, matrix_H, mode)
-            
+                result = detect_object(name_model, model_ai, image_to_process,
+                                       config.shapes, threshold_set, threshold_box,
+                                       conf, iou, max_det, agnostic_nms, matrix_H, mode)
+
             avg_offset_x, avg_offset_y = result.offset
             dx = dy = 0
-            
-            if config.calibration.use_calib and result.label_counts != 'NG' and not re.fullmatch(r"0+", result.label_counts):
-                
+
+            if config.calibration.use_calib and result.label_counts != 'NG' and not re.fullmatch(r"0+",
+                                                                                                 result.label_counts):
                 center_x_new, center_y_new = self.process_center(
                     avg_offset_x, avg_offset_y,
                     self.ui.check_box_swap_xy.isChecked(),
                     self.ui.check_box_negative_x.isChecked(),
                     self.ui.check_box_negative_y.isChecked()
                 )
-                
+
                 self.ui.spin_box_center_x.setValue(center_x_new)
                 self.ui.spin_box_center_y.setValue(center_y_new)
-                
+
                 org_x = config.calibration.center_origin_x
                 org_y = config.calibration.center_origin_y
-                
+
                 scale_x = config.calibration.scale_x
                 scale_y = config.calibration.scale_y
-                
+
                 dx = (center_x_new - org_x) * scale_x
-                dy = (center_y_new - org_y) * scale_y   
-                
+                dy = (center_y_new - org_y) * scale_y
+
                 self.ui.label_dx.setText(str(dx))
                 self.ui.label_dy.setText(str(dy))
-            
+
             today_folder = datetime.now().strftime('%Y_%m_%d')
             self.main_logger.log_image(
                 name_model,
                 result.dst,
                 image_folder=f'Images/ImageTest/{today_folder}/{name_model}'
             )
-            
+
             set_canvas(self.teaching_canvas, result.dst)
-            
+
             output_str = f"{result.label_counts}: {dx}, {dy}"
             print(output_str)
-            
+
         except Exception as ex:
             error_msg = f"Test failed: {str(ex)}"
             print(error_msg)
             QMessageBox.critical(self, 'Test Error', error_msg)
-    
+
     def on_click_but_connect_server(self):
         if self.ui.but_connect_server.property("status") == "Open":
             self.ui.but_connect_server.setProperty("status", "Close")
             self.ui.but_connect_server.setText('Close camera')
             self.connect_server_teaching()
-            
+
         self.style().unpolish(self.ui.but_connect_server)
         self.style().polish(self.ui.but_connect_server)
-        
+
         self.ui.but_connect_server.clicked.disconnect()
         self.ui.but_connect_server.clicked.connect(self.on_click_but_close_server)
-        
-    def on_click_but_close_server(self):        
+
+    def on_click_but_close_server(self):
         if self.ui.but_connect_server.property("status") == "Close":
             self.ui.but_connect_server.setText('Open')
             self.ui.but_connect_server.setProperty("status", "Open")
             self.close_server_teaching()
-            
+
         self.style().unpolish(self.ui.but_connect_server)
         self.style().polish(self.ui.but_connect_server)
-        
+
         self.ui.but_connect_server.clicked.disconnect()
         self.ui.but_connect_server.clicked.connect(self.on_click_but_connect_server)
 
@@ -561,13 +582,13 @@ class MainWindow(QMainWindow):
                 self.ui.but_open_com_send_data.setText('Close')
             else:
                 return
-            
+
         self.style().unpolish(self.ui.but_open_com_send_data)
         self.style().polish(self.ui.but_open_com_send_data)
-        
+
         self.ui.but_open_com_send_data.clicked.disconnect()
         self.ui.but_open_com_send_data.clicked.connect(self.on_click_but_close_send_data)
-    
+
     def on_click_but_close_send_data(self):
         if self.ui.but_open_com_send_data.property("status") == "Close":
             if self.close_send_data_teaching():
@@ -575,13 +596,13 @@ class MainWindow(QMainWindow):
                 self.ui.but_open_com_send_data.setProperty("status", "Open")
             else:
                 return
-            
+
         self.style().unpolish(self.ui.but_open_com_send_data)
         self.style().polish(self.ui.but_open_com_send_data)
-        
+
         self.ui.but_open_com_send_data.clicked.disconnect()
         self.ui.but_open_com_send_data.clicked.connect(self.on_click_but_open_send_data)
-    
+
     def on_click_but_open_light(self):
         if self.ui.but_open_light.property("status") == "Open":
             if self.open_light_teaching():
@@ -589,20 +610,20 @@ class MainWindow(QMainWindow):
                 self.ui.but_open_light.setText('Close')
             else:
                 return
-        
+
         channel_0 = self.ui.spin_box_channel_value_0.value()
         channel_1 = self.ui.spin_box_channel_value_1.value()
         channel_2 = self.ui.spin_box_channel_value_2.value()
         channel_3 = self.ui.spin_box_channel_value_3.value()
-        
+
         self.set_light_value(channel_0, channel_1, channel_2, channel_3)
 
         self.style().unpolish(self.ui.but_open_light)
         self.style().polish(self.ui.but_open_light)
-        
+
         self.ui.but_open_light.clicked.disconnect()
         self.ui.but_open_light.clicked.connect(self.on_click_but_close_light)
-    
+
     def on_click_but_close_light(self):
         if self.ui.but_open_light.property("status") == "Close":
             if self.close_light_teaching():
@@ -610,36 +631,36 @@ class MainWindow(QMainWindow):
                 self.ui.but_open_light.setProperty("status", "Open")
             else:
                 return
-            
+
         self.style().unpolish(self.ui.but_open_light)
         self.style().polish(self.ui.but_open_light)
 
         self.ui.but_open_light.clicked.disconnect()
         self.ui.but_open_light.clicked.connect(self.on_click_but_open_light)
-    
+
     def on_click_but_create_aruco(self):
         squares_x = self.ui.spin_box_square_x.value()
         squares_y = self.ui.spin_box_square_y.value()
         square_length = self.ui.spin_box_square_length.value()
         marker_length = self.ui.spin_box_marker_length.value()
         aruco_dict = aruco_dict_mapping[self.ui.combo_box_aruco_dict.currentText()]
-        
-        reply = QMessageBox.question(self, 'Question', 'Are you want to create Aruco?', 
+
+        reply = QMessageBox.question(self, 'Question', 'Are you want to create Aruco?',
                                      QMessageBox.Yes | QMessageBox.No)
-        
+
         if reply == QMessageBox.Yes:
-            
+
             if squares_x <= 1 or squares_y <= 1 or square_length <= 1 or marker_length <= 0:
                 QMessageBox.warning(self, 'Warning', 'Please check setting parameters')
                 return
-            
+
             elif square_length <= marker_length:
                 QMessageBox.warning(self, 'Warning', 'Square length cannot be less than Marker length')
                 return
-            
+
             image_aruco = Calibration.create_aruco(squares_x, squares_y, square_length, marker_length, aruco_dict)
             set_canvas(self.image_aruco_canvas, image_aruco)
-    
+
     def on_click_but_save_parameters_aruco(self):
         try:
             config = {
@@ -649,23 +670,23 @@ class MainWindow(QMainWindow):
                 'marker_length': self.ui.spin_box_marker_length.value(),
                 'aruco_dict': aruco_dict_mapping[self.ui.combo_box_aruco_dict.currentText()],
             }
-            reply = QMessageBox.question(self, 'Question', 'Are You want to save parameters?', 
+            reply = QMessageBox.question(self, 'Question', 'Are You want to save parameters?',
                                          QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 self.handle_file_json.add('CalibrationSettings', config, 'Settings')
                 QMessageBox.information(self, 'Information', 'Parameters has been saved')
-                
+
         except Exception as e:
             QMessageBox.warning(self, 'Warning', str(e))
             print(e)
-    
+
     def on_click_but_clear_images_aruco(self):
-        reply = QMessageBox.question(self, 'Question', 'Are You want to clear all images?', 
-                                         QMessageBox.Yes | QMessageBox.No)
+        reply = QMessageBox.question(self, 'Question', 'Are You want to clear all images?',
+                                     QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.handle_file_json.delete('ImagesCalib', 'Images')
             QMessageBox.information(self, 'Information', 'Successfully clear all images')
-    
+
     def on_click_but_detect_marker(self):
         try:
             self.handle_file_json.delete('Destination', 'Images/ImagesCalib')
@@ -674,61 +695,62 @@ class MainWindow(QMainWindow):
             square_length = self.ui.spin_box_square_length.value()
             marker_length = self.ui.spin_box_marker_length.value()
             aruco_dict = aruco_dict_mapping[self.ui.combo_box_aruco_dict.currentText()]
-            
+
             dictionary = cv2.aruco.getPredefinedDictionary(aruco_dict)
-            
+
             board = cv2.aruco.CharucoBoard(
                 size=(squares_x, squares_y),
                 squareLength=square_length,
                 markerLength=marker_length,
                 dictionary=dictionary
             )
-            
+
             image_folder = 'Images/ImagesCalib/Source'
-            
-            reply = QMessageBox.question(self, 'Question', 'Are You want to detect markers?', 
-                                            QMessageBox.Yes | QMessageBox.No)
+
+            reply = QMessageBox.question(self, 'Question', 'Are You want to detect markers?',
+                                         QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 all_corners, all_ids, image_size, drawn_images = Calibration.collect_charuco_corners(
-                    image_folder=image_folder, 
-                    board=board, 
+                    image_folder=image_folder,
+                    board=board,
                     dictionary=dictionary
                 )
-                
+
                 if len(drawn_images) > 0:
                     for dst in drawn_images:
                         self.main_logger.log_image(
-                            'Calib', 
+                            'Calib',
                             dst,
                             image_folder=f'Images/ImagesCalib/Destination'
                         )
-                    
+
                     print(f'Get successfully corners, ids of {len(drawn_images)} picture')
-                    
-                    QMessageBox.information(self, 'Information', f'Get successfully corners, ids of {len(drawn_images)} picture')
-                    
+
+                    QMessageBox.information(self, 'Information',
+                                            f'Get successfully corners, ids of {len(drawn_images)} picture')
+
                     camera_matrix, dist_coeffs = Calibration.calibrate_camera_from_charuco(
-                        all_corners=all_corners, 
-                        all_ids=all_ids, 
-                        board=board, 
+                        all_corners=all_corners,
+                        all_ids=all_ids,
+                        board=board,
                         image_size=image_size
                     )
-                    
+
                     img_undistort = undistort_image(self.image_capture_aruco, camera_matrix, dist_coeffs)
-                    
+
                     homography_matrix, image_world_point = Calibration.setup_world_coordinate_system(
                         img=img_undistort,
                         board=board,
                         dictionary=dictionary
                     )
-                    
+
                     set_canvas(self.image_detect_aruco_canvas, image_world_point)
-                    
-                    
+
+
         except Exception as e:
             QMessageBox.warning(self, 'Warning', str(e))
             print(e)
-            
+
     def on_click_but_capture_aruco(self):
         try:
             if self.is_showing_camera:
@@ -738,33 +760,33 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.warning(self, 'Warning', 'Please open camera first')
                 return
-            
+
             set_canvas(self.image_aruco_canvas, image_capture)
             self.setImageAruco.emit(image_capture)
             self.main_logger.log_image(
-                'Calib', 
+                'Calib',
                 image_capture,
                 image_folder=f'Images/ImagesCalib/Source'
             )
         except Exception as e:
             print(e)
             return
-    
-    def on_click_but_set_center_origin(self): 
-        reply = QMessageBox.question(self, 'Question', 'Do you want to set center origin ?', 
-                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+
+    def on_click_but_set_center_origin(self):
+        reply = QMessageBox.question(self, 'Question', 'Do you want to set center origin ?',
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
         if reply == QMessageBox.StandardButton.Yes:
             center_x = self.ui.spin_box_center_x.value()
             center_y = self.ui.spin_box_center_y.value()
-    
+
             self.ui.label_center_origin_x.setText(str(center_x))
             self.ui.label_center_origin_y.setText(str(center_y))
             QMessageBox.information(self, 'Information', 'Center origin has been successfully updated')
-    
+
     def set_config_auto(self, config):
         self.set_shapes(self.auto_canvas, config.shapes)
-        
+
         self.light_value = {
             'channel_0': config.hardware.lighting.channel_value_0,
             'channel_1': config.hardware.lighting.channel_value_1,
@@ -772,16 +794,16 @@ class MainWindow(QMainWindow):
             'channel_3': config.hardware.lighting.channel_value_3,
             'delay': config.hardware.lighting.delay
         }
-        
+
         self.name_model = config.name_model
         self.model_ai = load_model(f'res/ModelAI/{config.model_ai.model_name}')
         self.classify_ai = load_model(f'res/ModelAI/{config.model_ai.classify_name}')
-        
+
         self.shapes = config.shapes
-        
+
         self.threshold_set = config.model_ai.threshold_set / 100
         self.threshold_box = config.model_ai.threshold_box / 100
-        
+
         self.conf = config.model_ai.conf
         self.iou = config.model_ai.iou
         self.max_det = config.model_ai.max_det
@@ -791,124 +813,77 @@ class MainWindow(QMainWindow):
 
     def thread_loop_auto(self, config):
         self.set_config_auto(config)
-        
+
+        self.open_send_data_teaching()
+
         step = Step.READ_TRIGGER
         result = None
         mat_check = None
         error = None
         loop_count = 0
-        org_x = config.calibration.center_origin_x
-        org_y = config.calibration.center_origin_y
-        
-        scale_x = config.calibration.scale_x
-        scale_y = config.calibration.scale_y
-        
+
         mode = self.get_detection_mode(config)
-        
+
         while True:
             try:
                 if step == Step.READ_TRIGGER:
-                    if self.trigger_on:
+                    code = self.com_send_data.read_data()
+
+                    if len(code) > 0 and code.startswith("cmd"):
                         self.main_logger.info(step)
-                        step = Step.ON_LIGHTING
-            ### ----------------------------------------- ###
-            #Thêm vào khi muốn change model tự động
-                # elif step == Step.LOAD_CONFIG:
-                #     if config.name_model == self.msg_model:
-                #         pass
-                #     else:
-                #         index = self.ui.combo_box_model_name_auto.findText(self.msg_model)
-                        
-                #         if index != -1:
-                #             self.ui.combo_box_model_name_auto.setCurrentIndex(index)
-                #         else:
-                #             raise Exception('Model undefined, please try again')
-                        
-                #         config = self.get_config_auto(f'Settings/ModelSettings/{self.msg_model}')
-                        
-                #         self.set_config_auto(config)
-                        
-                #     step = Step.PREPROCESS
-                
-            ### ----------------------------------------- ###
-            
-            ### ----------------------------------------- ###
-            #Thêm vào khi có đèn
-            
-                elif step == Step.ON_LIGHTING:
-                    self.showResultStatus.emit(StepResult.WAIT.value)
-                    self.main_logger.info(step)
-                    self.set_light_value(**self.light_value)
-                    step = Step.PREPROCESS
-                
-            ### ----------------------------------------- ###
+                        step = Step.PREPROCESS
+                        # mat_check = self.camera.get_frame()
+                        # if mat_check is None:
+                        #     raise Exception('Failed to get frame')
+
 
                 elif step == Step.PREPROCESS:
                     self.main_logger.info(step)
-                    time.sleep(config.hardware.camera.delay / 1000)
+                    # time.sleep(config.hardware.camera.delay / 1000)
                     mat_check = self.camera.get_frame()
                     if mat_check is None:
                         raise Exception('Failed to get frame')
-                    step = Step.OFF_LIGHTING
-
-                elif step == Step.OFF_LIGHTING:
-                    self.main_logger.info(step)
-                    self.set_light_value()
-                    step = Step.UNDISTORT_CAMERA
-                
-                elif step == step.UNDISTORT_CAMERA:
-                    if config.calibration.use_calib:
-                        if not self.calibration_loaded:
-                            raise Exception('Calibration data not loaded. Please check calibration files.')
-                    
-                        mat_check = undistort_image(mat_check, self.camera_matrix, self.dist_coeffs)
-                    
+                    # step = Step.OFF_LIGHTING
                     step = Step.VISION_DETECTION
-                    
-                            
+
                 elif step == Step.VISION_DETECTION:
                     self.main_logger.info(step)
-                    result = detect_object(self.name_model, self.model_ai, mat_check, 
-                                           self.shapes, self.threshold_set, self.threshold_box, 
+                    result = detect_object(self.name_model, self.model_ai, mat_check,
+                                           self.shapes, self.threshold_set, self.threshold_box,
                                            self.conf, self.iou, self.max_det, self.agnostic_nms, self.matrix_H, mode)
                     if config.model_ai.use_classify:
                         if result.label_counts != "NG":
                             pass
                         else:
-                            result = classify_object(self.name_model, self.classify_ai, mat_check, self.shapes, self.threshold_set, self.threshold_box)
-                    if config.calibration.use_calib and result.label_counts != "NG" and not re.fullmatch(r"0+", result.label_counts):           
-                        avg_center_x, avg_center_y = result.offset
-                        center_x_new, center_y_new = self.process_center(avg_center_x, avg_center_y, 
-                                                                        config.calibration.swap_xy, 
-                                                                        config.calibration.negative_x, 
-                                                                        config.calibration.negative_y
-                                                                    )
-                        dx = (center_x_new - org_x) * scale_x
-                        dy = (center_y_new - org_y) * scale_y
-                    else:
-                        dx, dy = 0, 0
-                        
+                            result = classify_object(self.name_model, self.classify_ai, mat_check, self.shapes,
+                                                     self.threshold_set, self.threshold_box)
+
+
                     self.showDstSignal.emit(self.auto_canvas, result.dst)
-                        
-                    output_str = f"{result.label_counts}: {dx}, {dy}"
-                    
+
                     step = Step.OUTPUT
-                        
+
                 elif step == Step.OUTPUT:
                     self.main_logger.info(step)
+
                     self.showResultStatus.emit(result.ret)
-                    self.server.send_data_to_all_clients(output_str)
+                    self.showResultRate.emit(result.ret)
+
                     step = Step.WRITE_LOG
-                
+
                 elif step == Step.WRITE_LOG:
                     try:
                         self.main_logger.info(step)
                         self.writeLog.emit(result)
-                        step = Step.RELEASE
+                        if result.ret == "FAIL":
+                            self.com_send_data.send_data("null")
+                        else:
+                            self.com_send_data.send_data(result.class_name)
+                        step = Step.READ_TRIGGER
                     except Exception as ex:
                         self.main_logger.error(str(ex))
                         step = Step.RELEASE
-                
+
                 elif step == Step.RELEASE:
                     self.main_logger.info(step)
                     mat_check = None
@@ -921,7 +896,7 @@ class MainWindow(QMainWindow):
                     if loop_count % 10 == 0:
                         gc.collect()
                     step = Step.READ_TRIGGER
-                
+
                 elif step == Step.ERROR:
                     self.main_logger.error(step)
                     if error:
@@ -932,65 +907,65 @@ class MainWindow(QMainWindow):
                 error = str(ex)
                 self.main_logger.error(f"Error in step {step}: {error}")
                 step = Step.ERROR
-            
+
             if not self.b_start:
                 self.set_shapes(self.auto_canvas, {})
                 gc.collect()
                 break
 
             time.sleep(0.01)
-    
+
     def load_calibration_data(self, config):
         self.matrix_H = None
         self.camera_matrix = None
         self.dist_coeffs = None
         self.calibration_loaded = False
-        
+
         if config.calibration.use_calib:
             calib_files = {
                 'homography': 'Settings/CalibrationSettings/homography_matrix.npz',
                 'camera': 'Settings/CalibrationSettings/camera_matrix.npy',
                 'dist': 'Settings/CalibrationSettings/dist_coeffs.npy'
             }
-            
+
             try:
                 homography_data = np.load(calib_files['homography'])
                 self.matrix_H = homography_data.get('homography_matrix')
-                
+
                 self.camera_matrix = np.load(calib_files['camera'])
                 self.dist_coeffs = np.load(calib_files['dist'])
-                
+
                 if self.matrix_H is None or self.camera_matrix is None or self.dist_coeffs is None:
                     raise Exception('Invalid calibration data')
-                
+
                 self.calibration_loaded = True
                 self.main_logger.info("Calibration data loaded successfully")
-                
+
             except (FileNotFoundError, KeyError) as e:
                 self.main_logger.error(f"Failed to load calibration: {e}")
                 self.calibration_loaded = False
-    
+
     def start_auto(self, config):
         self.ui.but_start_auto.setDisabled(True)
-        
-        self.open_camera_teaching(config)
-        self.connect_server_teaching(config)
-        self.open_light_teaching(config)
 
-        if self.is_open_camera and self.is_connect_server and self.is_open_light:
+        self.open_camera_teaching(config)
+        # self.connect_server_teaching(config)
+        # self.open_light_teaching(config)
+
+        if self.is_open_camera:
             self.started = True
             self.start_process(config)
             self.checkStarted.emit(self.started)
-            
+
         else:
             self.ui.but_start_auto.setDisabled(False)
-            
+
             self.close_camera_teaching()
             self.close_server_teaching()
             self.close_light_teaching()
-            
+
             self.hideEffect.emit(200)
-    
+
     def set_ui_auto_start(self, started):
         if started:
             self.set_disable_auto(True)
@@ -1000,54 +975,53 @@ class MainWindow(QMainWindow):
             self.set_disable_auto(False)
             self.ui.but_start_auto.setDisabled(False)
             self.ui.but_stop_auto.setDisabled(True)
-            
-    
+
     def start_process(self, config):
         time.sleep(0.2)
         threading.Thread(target=self.thread_loop_auto, daemon=True, args=(config,)).start()
         self.b_start = True
-    
+
     def stop_process(self):
         self.b_start = False
         self.set_trigger_off()
-    
+
     def set_image_test(self, image_capture):
         self.image_capture_test = image_capture
-    
+
     def set_image_aruco(self, image_capture):
         self.image_capture_aruco = image_capture
-    
+
     def open_camera_teaching(self, config=None):
         # Nếu camera đã mở, đóng nó trước
         if self.is_open_camera:
             self.close_camera_teaching()
-            time.sleep(0.2)  # Đợi một chút để đảm bảo camera được đóng hoàn toàn
-        
+            time.sleep(0.2)
+
         if config is None:
             config = self.get_config_from_ui()
-        
+
         camera_config = config.hardware.camera
         id_camera = camera_config.id
         feature_camera = f'res/CameraFeature/{camera_config.feature}'
-        
+
         if feature_camera == 'res/CameraFeature/Default':
             feature_camera = ''
-        
+
         try:
             success = self.camera.open_camera(camera_config.name, config={
                 'id': id_camera,
                 'feature': ''
             })
-            
+
             if not success:
                 self.main_logger.error('Failed to open camera')
                 return False
-            
+
             self.is_open_camera = True
             self.ui.but_start_camera_teaching.setDisabled(False)
             self.main_logger.info('Camera opened successfully')
             return True
-            
+
         except Exception as ex:
             self.main_logger.error(f'Error opening camera: {ex}')
             return False
@@ -1055,36 +1029,36 @@ class MainWindow(QMainWindow):
     def close_camera_teaching(self):
         if not self.is_open_camera:
             return True
-        
+
         # Dừng thread hiển thị camera trước
         self.stop_camera_teaching()
-        
+
         # Đợi thread kết thúc hoàn toàn
         if self.camera_thread and self.camera_thread.is_alive():
             self.camera_thread_running = False
             self.camera_thread.join(timeout=2.0)  # Đợi tối đa 2 giây
-        
+
         # Đóng camera
         try:
             self.camera.close_camera()
         except Exception as ex:
             self.main_logger.error(f'Error closing camera: {ex}')
-        
+
         # Reset trạng thái
         self.is_open_camera = False
         self.is_showing_camera = False
         self.camera_thread = None
         self.camera_thread_running = False
-        
+
         self.ui.but_start_camera_teaching.setDisabled(True)
         return True
-    
+
     def loop_live_camera(self, camera):
         try:
             while self.camera_thread_running and self.is_showing_camera:
                 if not self.is_open_camera:
                     break
-                    
+
                 frame = camera.get_frame()
                 self.mat = frame
                 if frame is not None:
@@ -1095,7 +1069,7 @@ class MainWindow(QMainWindow):
                     del frame
                 else:
                     break
-                    
+
                 time.sleep(0.04)
         except Exception as ex:
             self.main_logger.error(f'Error in camera loop: {ex}')
@@ -1104,94 +1078,105 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'mat'):
                 del self.mat
             self.camera_thread_running = False
-    
+
     def start_camera_teaching(self):
         try:
             # Dừng thread cũ nếu còn chạy
             if self.camera_thread and self.camera_thread.is_alive():
                 self.stop_camera_teaching()
                 time.sleep(0.1)  # Đợi một chút
-            
+
             # Kiểm tra camera có mở không
             if not self.is_open_camera:
                 self.main_logger.error('Camera is not opened')
                 return
-            
+
             self.is_showing_camera = True
             self.camera_thread_running = True
-            
+
             # Tạo thread mới
             self.camera_thread = threading.Thread(
-                target=self.loop_live_camera, 
-                args=(self.camera,), 
+                target=self.loop_live_camera,
+                args=(self.camera,),
                 daemon=True
             )
             self.camera_thread.start()
-            
+
             self.main_logger.info('Camera is starting')
-            
+
         except Exception as ex:
             self.main_logger.error(f'Failed to start camera. Error: {ex}')
             self.is_showing_camera = False
             self.camera_thread_running = False
-    
+
     def stop_camera_teaching(self):
         try:
             # Dừng thread hiển thị
             self.camera_thread_running = False
             self.is_showing_camera = False
-            
+
             # Đợi thread kết thúc
             if self.camera_thread and self.camera_thread.is_alive():
                 self.camera_thread.join(timeout=1.0)
-            
+
             self.main_logger.info('Camera was stopped')
-            
+
         except Exception as ex:
             self.main_logger.error(f'Failed to stop camera. Error: {ex}')
-            
+
     def connect_server_teaching(self, config=None):
         if self.is_connect_server:
             return True
-        
+
         if config is None:
             config = self.get_config_from_ui()
-        
+
         server_config = config.hardware.server
         self.server.start_server(server_config.ip, int(server_config.port))
-        
+
         if not self.server.is_connected:
             return False
-        
+
         self.is_connect_server = True
         return True
 
     def close_server_teaching(self):
         if not self.is_connect_server:
             return True
-        
+
         self.server.stop_server()
         self.is_connect_server = False
         return True
 
+    def close_server_teaching(self):
+        if not self.is_connect_server:
+            return True
+
+        self.server.stop_server()
+        self.is_connect_server = False
+        return
+
     def open_send_data_teaching(self, config=None):
         if self.is_com_send_data:
             return True
-        
+
         if config is None:
             config = self.get_config_from_ui()
-        
+
         com = config.hardware.send_data.comport
         baud = int(config.hardware.send_data.baudrate)
-        
         self.com_send_data.connect(com, baud)
+
+
+
         self.is_com_send_data = True
+
         return True
 
     def close_send_data_teaching(self):
         if not self.is_com_send_data:
             return True
-        
+
         self.com_send_data.disconnect()
         self.is_com_send_data = False
         return True
@@ -1199,10 +1184,10 @@ class MainWindow(QMainWindow):
     def open_light_teaching(self, config=None):
         if self.is_open_light:
             return True
-        
+
         if config is None:
             config = self.get_config_from_ui()
-        
+
         lighting_config = config.hardware.lighting
         com = lighting_config.comport
         baud = int(lighting_config.baudrate)
@@ -1217,9 +1202,9 @@ class MainWindow(QMainWindow):
             self.light.light_logger.signalLog.disconnect(self.add_log_view)
         except:
             pass
-            
+
         self.light.light_logger.signalLog.connect(self.add_log_view)
-        
+
         if self.light.open(com, baud):
             self.is_open_light = True
             return True
@@ -1229,40 +1214,40 @@ class MainWindow(QMainWindow):
     def close_light_teaching(self):
         if not self.is_open_light:
             return True
-        
+
         if self.light:
             try:
                 self.light.light_logger.signalLog.disconnect(self.add_log_view)
             except:
                 pass
-                      
+
             if self.light.close():
                 self.is_open_light = False
                 self.light = None
                 return True
         else:
             return False
-    
-    def set_light_value(self, channel_0=0 , channel_1=0, channel_2=0, channel_3=0, delay=0):
+
+    def set_light_value(self, channel_0=0, channel_1=0, channel_2=0, channel_3=0, delay=0):
         self.light.set_light_value(0, channel_0)
         self.light.set_light_value(1, channel_1)
         self.light.set_light_value(2, channel_2)
         self.light.set_light_value(3, channel_3)
         delay = delay / 1000
         time.sleep(delay)
-        
+
     def update_light_value(self):
         if hasattr(self, 'light') and self.ui.but_open_light.property("status") == "Close":
             channel_0 = self.ui.spin_box_channel_value_0.value()
             channel_1 = self.ui.spin_box_channel_value_1.value()
             channel_2 = self.ui.spin_box_channel_value_2.value()
             channel_3 = self.ui.spin_box_channel_value_3.value()
-            
+
             self.light.set_light_value(0, channel_0)
             self.light.set_light_value(1, channel_1)
             self.light.set_light_value(2, channel_2)
             self.light.set_light_value(3, channel_3)
-        
+
     def read_data_tcp(self, data):
         self.ui.list_widget_message_tcp.addItem(data)
 
@@ -1279,13 +1264,13 @@ class MainWindow(QMainWindow):
         if negative_y:
             y = -y
         return x, y
-    
+
     def get_config_from_ui(self):
         config = SimpleNamespace(
-            name_model = self.ui.combo_box_model_name_teaching.currentText(),
-            
+            name_model=self.ui.combo_box_model_name_teaching.currentText(),
+
             shapes=self.get_shapes(self.teaching_canvas),
-            
+
             model_ai=SimpleNamespace(
                 model_name=self.ui.combo_box_model_ai.currentText(),
                 classify_name=self.ui.combo_box_classify_ai.currentText(),
@@ -1297,18 +1282,14 @@ class MainWindow(QMainWindow):
                 iou=self.ui.spin_box_iou.value(),
                 max_det=self.ui.spin_box_max_det.value(),
             ),
-            
+
             calibration=SimpleNamespace(
                 use_calib=self.ui.check_box_use_calib.isChecked(),
-                center_origin_x=float(self.ui.label_center_origin_x.text()),
-                center_origin_y=float(self.ui.label_center_origin_y.text()),
                 scale_x=self.ui.spin_box_scale_x.value(),
                 scale_y=self.ui.spin_box_scale_y.value(),
-                swap_xy=self.ui.check_box_swap_xy.isChecked(),
-                negative_x=self.ui.check_box_negative_x.isChecked(),
-                negative_y=self.ui.check_box_negative_y.isChecked(),
+                swap_xy=self.ui.check_box_swap_xy.isChecked()
             ),
-                        
+
             hardware=SimpleNamespace(
                 server=SimpleNamespace(
                     ip=self.ui.line_edit_ip_server.text(),
@@ -1358,9 +1339,9 @@ class MainWindow(QMainWindow):
 
     def set_config_teaching(self, config):
         # self.ui.combo_box_model_name_teaching.setCurrentText(config.get("name_model", ""))
-        
+
         self.set_shapes(self.teaching_canvas, config.get("shapes", {}))
-        
+
         model_ai = config.get("model_ai", {})
         self.ui.combo_box_model_ai.setCurrentText(model_ai.get("model_name", ""))
         self.ui.combo_box_classify_ai.setCurrentText(model_ai.get("classify_name", ""))
@@ -1371,16 +1352,16 @@ class MainWindow(QMainWindow):
         self.ui.spin_box_confidence.setValue(model_ai.get("conf", 0.1))
         self.ui.spin_box_iou.setValue(model_ai.get("iou", 1))
         self.ui.spin_box_max_det.setValue(model_ai.get("max_det", 100))
-        
+
         calibration = config.get("calibration", {})
         self.ui.check_box_use_calib.setChecked(calibration.get("use_calib", False))
-        self.ui.label_center_origin_x.setText(str(calibration.get("center_origin_x", 0.0)))
-        self.ui.label_center_origin_y.setText(str(calibration.get("center_origin_y", 0.0)))
+        # self.ui.label_center_origin_x.setText(str(calibration.get("center_origin_x", 0.0)))
+        # self.ui.label_center_origin_y.setText(str(calibration.get("center_origin_y", 0.0)))
         self.ui.spin_box_scale_x.setValue(calibration.get("scale_x", 1.0))
         self.ui.spin_box_scale_y.setValue(calibration.get("scale_y", 1.0))
         self.ui.check_box_swap_xy.setChecked(calibration.get("swap_xy", False))
-        self.ui.check_box_negative_x.setChecked(calibration.get("negative_x", False))
-        self.ui.check_box_negative_y.setChecked(calibration.get("negative_y", False))
+        # self.ui.check_box_negative_x.setChecked(calibration.get("negative_x", False))
+        # self.ui.check_box_negative_y.setChecked(calibration.get("negative_y", False))
 
         # Cập nhật phần cứng
         hardware = config.get("hardware", {})
@@ -1413,9 +1394,10 @@ class MainWindow(QMainWindow):
         self.ui.line_edit_log_dir.setText(system_config.get("log_dir", ""))
         self.ui.spin_box_log_size.setValue(system_config.get("log_size", 0))
         self.ui.line_edit_database_path.setText(system_config.get("database_path", ""))
-        
+
         # Set mode radio buttons
-        self.ui.radio_production_mode.setChecked(system_config.get("production_mode", True))  # Default to production mode
+        self.ui.radio_production_mode.setChecked(
+            system_config.get("production_mode", True))  # Default to production mode
         self.ui.radio_no_ng_mode.setChecked(system_config.get("no_ng_mode", False))
         self.ui.radio_bypass_mode.setChecked(system_config.get("bypass_mode", False))
 
@@ -1466,11 +1448,11 @@ class MainWindow(QMainWindow):
                 iou=model_ai_config.get("iou", 1),
                 max_det=model_ai_config.get("max_det", 100),
             ),
-            
+
             calibration=SimpleNamespace(
                 use_calib=calib_config.get("use_calib", False),
-                center_origin_x=calib_config.get("center_origin_x", 0.0),
-                center_origin_y=calib_config.get("center_origin_y", 0.0),
+                # center_origin_x=calib_config.get("center_origin_x", 0.0),
+                # center_origin_y=calib_config.get("center_origin_y", 0.0),
                 scale_x=calib_config.get("scale_x", 1.0),
                 scale_y=calib_config.get("scale_y", 1.0),
                 swap_xy=calib_config.get("swap_xy", False),
@@ -1478,7 +1460,7 @@ class MainWindow(QMainWindow):
                 negative_y=calib_config.get("negative_y", False),
             ),
 
-            hardware=SimpleNamespace(                
+            hardware=SimpleNamespace(
                 server=SimpleNamespace(
                     ip=server_config.get("ip", ""),
                     port=server_config.get("port", "")
@@ -1543,22 +1525,22 @@ class MainWindow(QMainWindow):
             return
         config = self.handle_file_json.load(file_path=f'Settings/ModelSettings/{name_model}')
         self.set_config_teaching(config)
-    
+
     def get_shapes(self, canvas: Canvas):
         shapes: list[MyShape] = canvas.shapes
         shape_config = {}
-        
+
         for s in shapes:
             shape_config[s.label] = s.cvBox
         # print(shape_config)
         return shape_config
-    
+
     def set_shapes(self, canvas: Canvas, shape_config):
         canvas.clear()
         for label in shape_config:
             s = self.new_shape(label, shape_config[label])
             canvas.append_shape(s)  # Thay đổi dòng này
-            
+
     def new_shape(self, label, box):
         s = MyShape(label)
         x, y, w, h = box
@@ -1566,39 +1548,64 @@ class MainWindow(QMainWindow):
             QPointF(x, y),
             QPointF(x + w, y),
             QPointF(x + w, y + h),
-            QPointF(x, y + h)            
+            QPointF(x, y + h)
         ]
         return s
-    
+
     def update_label_status(self, status):
-        self.ui.label_result.setText(status)
         self.ui.label_result.setProperty("status", status)
         self.ui.label_result.style().polish(self.ui.label_result)
-    
+
+    def update_label_result(self, ret):
+        self.count_product_total += 1
+        if ret == "PASS":
+            self.count_product_ok += 1
+        else:
+            self.count_product_ng += 1
+
+        if self.count_product_total != 0:
+            rate = round(self.count_product_ok / self.count_product_total, 2)
+
+        self.ui.label_ok.setText(str(self.count_product_ok))
+        self.ui.label_ng.setText(str(self.count_product_ng))
+        self.ui.label_total.setText(str(self.count_product_total))
+        self.ui.label_rate.setText(str(rate))
+
+
+
     def write_log(self, result: RESULT):
         try:
             if result is not None:
                 today_folder = datetime.now().strftime('%Y_%m_%d')
-                
+
                 path_input = self.main_logger.log_image(
-                    'Source', 
+                    'Source',
                     result.src,
                     f'Log_Vision/Log_Image/{today_folder}/{result.model_name}/src',
                     result.ret
                 )
-                
+
                 path_output = self.main_logger.log_image(
-                    result.model_name, 
+                    result.model_name,
                     result.dst,
                     f'Log_Vision/Log_Image/{today_folder}/{result.model_name}/dst',
                     result.ret
                 )
         except Exception as e:
             print(e)
-    
+
+    def read_com_send_data(self):
+        try:
+            code = self.com_send_data.read_data()
+            if "cmd" in code:
+                self.main_logger.info("Read Data OKE")
+                return code
+            return code
+        except Exception as e:
+            print(e)
     def add_log_view(self, message):
         item = QStandardItem(message)
-        
+
         if "ERROR" in message:
             item.setBackground(QColor("#FF6347"))  # Nền đỏ cam
             item.setForeground(QColor("#FFFFFF"))  # Chữ trắng
@@ -1610,20 +1617,19 @@ class MainWindow(QMainWindow):
         self.log_model.appendRow(item)
         if self.log_model.rowCount() > 50:
             self.log_model.removeRows(0, 42)
-        
+
         self.ui.list_log_view.scrollToBottom()
-    
+
     def upload_model_ai(self):
         model_dir = "res/ModelAI"
         model_names = [name for name in os.listdir(model_dir) if name.endswith((".pt", ".pth"))]
         classify_names = [name for name in os.listdir(model_dir) if name.endswith((".pt", ".pth"))]
-        
+
         self.ui.combo_box_model_ai.clear()
         self.ui.combo_box_model_ai.addItems(model_names)
         self.ui.combo_box_classify_ai.clear()
         self.ui.combo_box_classify_ai.addItems(classify_names)
-        
-        
+
     def upload_model_names(self):
         model_dir = "Settings/ModelSettings"
         model_names = [name for name in os.listdir(model_dir)]
@@ -1632,16 +1638,16 @@ class MainWindow(QMainWindow):
         self.ui.combo_box_model_name_auto.clear()
         self.ui.combo_box_model_name_auto.addItems(model_names)
         self.ui.combo_box_model_name_data.addItems(model_names)
-        
+
     def upload_feature_camera(self):
         feature_dir = "res/CameraFeature"
         feature_names = [name for name in os.listdir(feature_dir) if name.endswith((".ini"))]
         self.ui.combo_box_feature_camera.clear()
         self.ui.combo_box_feature_camera.addItems(feature_names)
-    
+
     def refresh_ports(self):
         ports = serial.tools.list_ports.comports()
-        
+
         self.ui.combo_box_com_controller_light.clear()
         self.ui.combo_box_com_controller_io.clear()
         self.ui.combo_box_com_controller_scanner.clear()
@@ -1650,27 +1656,28 @@ class MainWindow(QMainWindow):
         self.ui.combo_box_com_controller_io.addItems([port.device for port in ports])
         self.ui.combo_box_com_controller_scanner.addItems([port.device for port in ports])
         self.ui.combo_box_com_controller_send_data.addItems([port.device for port in ports])
-        
+
         self.ui.combo_box_baudrate_controller_light.clear()
         self.ui.combo_box_baudrate_controller_io.clear()
         self.ui.combo_box_baudrate_controller_scanner.clear()
         self.ui.combo_box_baudrate_controller_send_data.clear()
-        self.ui.combo_box_baudrate_controller_light.addItems(list(map(str, serial.Serial.BAUDRATES)))
-        self.ui.combo_box_baudrate_controller_io.addItems(list(map(str, serial.Serial.BAUDRATES)))
-        self.ui.combo_box_baudrate_controller_scanner.addItems(list(map(str, serial.Serial.BAUDRATES)))
-        self.ui.combo_box_baudrate_controller_send_data.addItems(list(map(str, serial.Serial.BAUDRATES)))
-        
+
+        # self.ui.combo_box_baudrate_controller_light.addItems(list(map(str, serial.Serial.BAUDRATES)))
+        # self.ui.combo_box_baudrate_controller_io.addItems(list(map(str, serial.Serial.BAUDRATES)))
+        # self.ui.combo_box_baudrate_controller_scanner.addItems(list(map(str, serial.Serial.BAUDRATES)))
+        # self.ui.combo_box_baudrate_controller_send_data.addItems(list(map(str, serial.Serial.BAUDRATES)))
+
         devices = get_camera_devices()
         self.ui.combo_box_id_camera.clear()
         self.ui.combo_box_id_camera.addItems(list(devices.keys()))
-    
+
     def set_disable_auto(self, ret):
         self.ui.but_open_camera_teaching.setDisabled(ret)
         self.ui.but_connect_server.setDisabled(ret)
         self.ui.but_open_io_controller.setDisabled(ret)
         self.ui.but_connect_scanner.setDisabled(ret)
         self.ui.but_open_com_send_data.setDisabled(ret)
-        
+
         self.ui.combo_box_feature_camera.setDisabled(ret)
         self.ui.combo_box_id_camera.setDisabled(ret)
         self.ui.combo_box_name_camera.setDisabled(ret)
@@ -1686,7 +1693,7 @@ class MainWindow(QMainWindow):
         self.ui.combo_box_classify_ai.setDisabled(ret)
         self.ui.check_box_use_classify.setDisabled(ret)
         self.ui.check_box_agnostic_nms.setDisabled(ret)
-        
+
         self.ui.line_edit_ip_server.setDisabled(ret)
         self.ui.line_edit_port_server.setDisabled(ret)
         self.ui.spin_box_threshold_set.setDisabled(ret)
@@ -1699,11 +1706,11 @@ class MainWindow(QMainWindow):
     def set_arUco_dictionary(self):
         for dict_name in aruco_dict_mapping.keys():
             self.ui.combo_box_aruco_dict.addItem(dict_name)
-    
+
     def set_trigger_on(self, msg):
         self.msg_model = msg
         self.trigger_on = True
-    
+
     def set_trigger_off(self):
         self.msg_model = None
         self.trigger_on = False
@@ -1712,12 +1719,12 @@ class MainWindow(QMainWindow):
         self.ui.progressBar.setValue(0)
         self.ui.progressBar.setVisible(True)
         for i in range(1, 100):
-            QTimer.singleShot(dt*i, lambda value=i: self.ui.progressBar.setValue(value))
+            QTimer.singleShot(dt * i, lambda value=i: self.ui.progressBar.setValue(value))
 
     def hide_effect(self, timeout=500):
         QTimer.singleShot(10, partial(self.ui.progressBar.setValue, 100))
         QTimer.singleShot(timeout, partial(self.ui.progressBar.setVisible, False))
-    
+
     def saveSettings(self):
         """Lưu trạng thái layout vào file settings.ini"""
         settings = QSettings("Settings/layout_settings.ini", QSettings.IniFormat)
@@ -1737,12 +1744,12 @@ class MainWindow(QMainWindow):
 
         if isinstance(windowState, QByteArray) and not windowState.isEmpty():
             self.restoreState(windowState)
-            
+
         self.ui.combo_box_model_name_teaching.setCurrentIndex(int(settings.value("combo_box_index", 0)))
         self.ui.combo_box_model_name_auto.setCurrentIndex(int(settings.value("combo_box_index_auto", 0)))
-        
+
         config = self.handle_file_json.load('Settings/CalibrationSettings/')
-        
+
         if config is not None:
             self.ui.spin_box_square_x.setValue(config['squares_x'])
             self.ui.spin_box_square_y.setValue(config['squares_y'])
@@ -1751,7 +1758,7 @@ class MainWindow(QMainWindow):
             self.ui.combo_box_aruco_dict.setCurrentIndex(config['aruco_dict'])
 
     def resetLayout(self):
-        confirm = QMessageBox.question(self, "Reset Layout", 
+        confirm = QMessageBox.question(self, "Reset Layout",
                                        "Are you sure you want to reset the layout to default?",
                                        QMessageBox.Yes | QMessageBox.No)
         if confirm == QMessageBox.Yes:
@@ -1760,14 +1767,14 @@ class MainWindow(QMainWindow):
             settings.clear()  # Xóa tất cả dữ liệu đã lưu
             QMessageBox.information(self, "Notification", "Layout has been reset. The application will restart")
             self.restartApp()
-            
+
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Question', 'Are You want to quit?', 
-                                    QMessageBox.Yes|QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.question(self, 'Question', 'Are You want to quit?',
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             # Cleanup tất cả resources
             self.cleanup_resources()
-            
+
             if not self.is_resetting:
                 self.saveSettings()
             else:
@@ -1781,13 +1788,13 @@ class MainWindow(QMainWindow):
         # Dừng threads
         if self.is_showing_camera:
             self.stop_camera_teaching()
-        
+
         if self.is_open_camera:
             self.close_camera_teaching()
-        
+
         if self.is_open_light:
             self.close_light_teaching()
-        
+
         # Giải phóng images
         if hasattr(self, 'mat'):
             del self.mat
@@ -1795,7 +1802,7 @@ class MainWindow(QMainWindow):
             del self.image_capture_test
         if hasattr(self, 'image_capture_aruco'):
             del self.image_capture_aruco
-        
+
         # Disconnect tất cả signals
         try:
             self.server.triggerOn.disconnect()
@@ -1803,15 +1810,15 @@ class MainWindow(QMainWindow):
             # ... disconnect other signals ...
         except:
             pass
-        
+
         gc.collect()
-            
+
     def restartApp(self):
         python = sys.executable
         subprocess.Popen([python] + sys.argv)
         sys.exit(0)
-        
-        
+
+
 def show():
     # Enable high DPI scaling
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)

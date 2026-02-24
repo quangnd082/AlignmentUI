@@ -129,3 +129,5 @@ Libs/test3.py
 res/ModelAI/bed3fe_micfpcp.pt
 res/ModelAI/sub_check_fpcp.pt
 /res/ModelAI/
+/Libs/cameras/DNX64/
+/Libs/cameras/MVSImport/

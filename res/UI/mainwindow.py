@@ -1614,7 +1614,7 @@ class Ui_MainWindow(object):
         self.label_10.setText(_translate("MainWindow", "Camera"))
         self.but_start_camera_teaching.setText(_translate("MainWindow", "Start Camera"))
         self.combo_box_name_camera.setItemText(0, _translate("MainWindow", "HIK"))
-        self.combo_box_name_camera.setItemText(1, _translate("MainWindow", "Webcam"))
+        self.combo_box_name_camera.setItemText(1, _translate("MainWindow", "DINO"))
         self.combo_box_name_camera.setItemText(2, _translate("MainWindow", "SODA"))
         self.label_11.setText(_translate("MainWindow", "ID"))
         self.but_open_image_teaching.setText(_translate("MainWindow", "Open Image"))
