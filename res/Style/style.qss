@@ -851,7 +851,7 @@ QCheckBox::indicator:hover, QRadioButton::indicator:hover {
 
 /* ==================== QProgressBar (Responsive) ==================== */
 QProgressBar {
-    background: #F5F5F5;
+    background: #E4E7EC;
     border: 0.05em solid #B0B0B0;
     border-radius: 0.45em;
     text-align: center;

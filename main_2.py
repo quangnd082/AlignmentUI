@@ -32,11 +32,13 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QActionGroup, QM
     QTableWidgetItem, QTableWidget, QLabel
 from PyQt5.QtCore import QThread, Qt, pyqtSignal, QStringListModel, QSettings, QByteArray, QTimer, QPointF
 from PyQt5.QtGui import QIcon, QImage, QPixmap, QStandardItemModel, QStandardItem, QColor, QBrush, QScreen
-from res.UI.mainwindow_ui import Ui_MainWindow
+from res.UI.mainwindow_2 import Ui_MainWindow
 from functools import partial
 from types import SimpleNamespace
 import re
+import warnings
 
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class MainWindow(QMainWindow,Ui_MainWindow):
     showDstSignal = pyqtSignal(Canvas, np.ndarray)
@@ -171,7 +173,6 @@ class MainWindow(QMainWindow,Ui_MainWindow):
         self.showResultRate.connect(self.update_label_result)
         self.showEffect.connect(self.show_effect)
         self.hideEffect.connect(self.hide_effect)
-        self.ui.actionResetLayout.triggered.connect(self.resetLayout)
         self.readComSendData.connect(self.com_send_data.read_data)
 
     def connect_action(self):
@@ -378,40 +379,6 @@ class MainWindow(QMainWindow,Ui_MainWindow):
                 return
 
             config = self.get_config_from_ui()
-            if config.calibration.use_calib:
-                camera_file = 'Settings/CalibrationSettings/camera_matrix.npy'
-                dist_file = 'Settings/CalibrationSettings/dist_coeffs.npy'
-
-                camera_matrix = dist_coeffs = None
-
-                if os.path.exists(camera_file):
-                    camera_matrix = np.load(camera_file)
-                else:
-                    QMessageBox.critical(self, 'Calibration Error',
-                                         'Camera matrix file not found. Please check calibration.')
-                    return
-
-                if os.path.exists(dist_file):
-                    dist_coeffs = np.load(dist_file)
-                else:
-                    QMessageBox.critical(self, 'Calibration Error',
-                                         'Distortion coefficients file not found. Please check calibration.')
-                    return
-
-                if camera_matrix is None or dist_coeffs is None:
-                    QMessageBox.critical(self, 'Calibration Error',
-                                         'Invalid calibration matrices. Please check calibration.')
-                    return
-
-                try:
-                    image_capture = undistort_image(image_capture, camera_matrix, dist_coeffs)
-                    if image_capture is None:
-                        QMessageBox.critical(self, 'Calibration Error',
-                                             'Failed to undistort image. Please check calibration matrices.')
-                        return
-                except Exception as undistort_ex:
-                    QMessageBox.critical(self, 'Calibration Error', f'Undistortion failed: {str(undistort_ex)}')
-                    return
 
             today_folder = datetime.now().strftime('%Y_%m_%d')
             model_name = self.ui.combo_box_model_name_teaching.currentText()

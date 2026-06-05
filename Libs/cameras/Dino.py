@@ -4,22 +4,22 @@ import time
 from Libs.cameras.DNX64.DNX64 import DNX64
 from Libs.cameras.base_camera import *
 
+
 class DINO(BaseCamera):
 
     def __init__(self, config=None) -> None:
 
-        # MUST init BEFORE BaseCamera (tránh bị overwrite)
+        # Hardware
         self._dnx = None
         self._device_index = 0
 
+        # Stream
         self._running = False
         self._grab_thread = None
         self._lock = threading.Lock()
-
         self._latest_frame = None
 
-        # Auto LED
-        self._auto_led = False
+        # LED
         self._led_state = False
 
         super().__init__(config=config)
@@ -39,10 +39,8 @@ class DINO(BaseCamera):
                 return devices
 
             count = dnx.GetVideoDeviceCount()
-
             for i in range(count):
                 devices[str(i)] = i
-
         except:
             pass
 
@@ -81,10 +79,7 @@ class DINO(BaseCamera):
 
             self._dnx.SetVideoDeviceIndex(self._device_index)
 
-            # Auto LED flag
-            self._auto_led = self._config.get("auto_led", False)
-
-            # Open stream via DirectShow
+            # Open video stream
             self._cap = cv2.VideoCapture(self._device_index, cv2.CAP_DSHOW)
             self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
@@ -136,16 +131,16 @@ class DINO(BaseCamera):
 
     # ================= LED CONTROL =================
 
-    def _led_on(self):
+    def led_on(self):
         if self._dnx and not self._led_state:
             try:
                 self._dnx.SetLEDState(self._device_index, 1)
                 self._led_state = True
-                time.sleep(0.02)
+                time.sleep(0.02)  # stabilize
             except:
                 pass
 
-    def _led_off(self):
+    def led_off(self):
         if self._dnx and self._led_state:
             try:
                 self._dnx.SetLEDState(self._device_index, 0)
@@ -159,23 +154,12 @@ class DINO(BaseCamera):
 
         start = time.time()
 
-        if self._auto_led:
-            self._led_on()
-
         while True:
             with self._lock:
                 if self._latest_frame is not None:
-                    frame = self._latest_frame.copy()
-
-                    if self._auto_led:
-                        self._led_off()
-
-                    return NO_ERROR, frame
+                    return NO_ERROR, self._latest_frame.copy()
 
             if time.time() - start > timeout:
-                if self._auto_led:
-                    self._led_off()
-
                 self._error = ERR_GRAB_FAIL
                 return self._error, None
 

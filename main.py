@@ -50,7 +50,7 @@ class MainWindow(QMainWindow,Ui_MainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.setWindowIcon(QIcon("Assets/ai.png"))
-        self.setWindowTitle('MLBGInspection')
+        self.setWindowTitle('GlueInspection')
 
         self.init_setup_ui()
 
@@ -469,70 +469,15 @@ class MainWindow(QMainWindow,Ui_MainWindow):
             name_classify_ai = self.ui.combo_box_classify_ai.currentText()
             use_classify = self.ui.check_box_use_classify.isChecked()
 
-            model_ai = YOLO(f'res/ModelAI/{name_model_ai}')
             classify_ai = YOLO(f'res/ModelAI/{name_classify_ai}')
 
-            threshold_set = self.ui.spin_box_threshold_set.value() / 100
-            threshold_box = self.ui.spin_box_threshold_box.value() / 100
-            conf = self.ui.spin_box_confidence.value()
-            iou = self.ui.spin_box_iou.value()
-            max_det = self.ui.spin_box_max_det.value()
-            agnostic_nms = self.ui.check_box_agnostic_nms.isChecked()
-
             image_to_process = self.image_capture_test
-            matrix_H = None
-            mode = self.get_detection_mode(config)
-
-            if config.calibration.use_calib:
-                homography_file = 'Settings/CalibrationSettings/homography_matrix.npz'
-
-                try:
-                    if os.path.exists(homography_file):
-                        homography_data = np.load(homography_file)
-                        matrix_H = homography_data.get('homography_matrix')
-
-                        if matrix_H is None:
-                            raise Exception('Invalid homography matrix')
-                    else:
-                        raise Exception('Homography matrix file not found')
-
-                except Exception as e:
-                    raise Exception(f'Failed to load homography matrix: {str(e)}')
 
             if use_classify:
-                result = classify_object(name_model, classify_ai, image_to_process,
-                                         config.shapes, threshold_set, threshold_box)
-            else:
-                result = detect_object(name_model, model_ai, image_to_process,
-                                       config.shapes, threshold_set, threshold_box,
-                                       conf, iou, max_det, agnostic_nms, matrix_H, mode)
+                result = classify_object(name_model, classify_ai, image_to_process)
 
-            avg_offset_x, avg_offset_y = result.offset
-            dx = dy = 0
 
-            if config.calibration.use_calib and result.label_counts != 'NG' and not re.fullmatch(r"0+",
-                                                                                                 result.label_counts):
-                center_x_new, center_y_new = self.process_center(
-                    avg_offset_x, avg_offset_y,
-                    self.ui.check_box_swap_xy.isChecked(),
-                    self.ui.check_box_negative_x.isChecked(),
-                    self.ui.check_box_negative_y.isChecked()
-                )
 
-                self.ui.spin_box_center_x.setValue(center_x_new)
-                self.ui.spin_box_center_y.setValue(center_y_new)
-
-                org_x = config.calibration.center_origin_x
-                org_y = config.calibration.center_origin_y
-
-                scale_x = config.calibration.scale_x
-                scale_y = config.calibration.scale_y
-
-                dx = (center_x_new - org_x) * scale_x
-                dy = (center_y_new - org_y) * scale_y
-
-                self.ui.label_dx.setText(str(dx))
-                self.ui.label_dy.setText(str(dy))
 
             today_folder = datetime.now().strftime('%Y_%m_%d')
             self.main_logger.log_image(
@@ -543,8 +488,8 @@ class MainWindow(QMainWindow,Ui_MainWindow):
 
             set_canvas(self.teaching_canvas, result.dst)
 
-            output_str = f"{result.label_counts}: {dx}, {dy}"
-            print(output_str)
+            # output_str = f"{result.label_counts}"
+            # print(output_str)
 
         except Exception as ex:
             error_msg = f"Test failed: {str(ex)}"
@@ -855,8 +800,7 @@ class MainWindow(QMainWindow,Ui_MainWindow):
                         if result.label_counts != "NG":
                             pass
                         else:
-                            result = classify_object(self.name_model, self.classify_ai, mat_check, self.shapes,
-                                                     self.threshold_set, self.threshold_box)
+                            result = classify_object(self.name_model, self.classify_ai, mat_check)
 
 
                     self.showDstSignal.emit(self.auto_canvas, result.dst)
@@ -1523,7 +1467,7 @@ class MainWindow(QMainWindow,Ui_MainWindow):
         if name_model and self.ui.combo_box_model_name_teaching.findText(name_model) == -1:
             QMessageBox.warning(self, 'Warning', 'The model name is incorrect', QMessageBox.StandardButton.Close)
             return
-        config = self.handle_file_json.load(file_path=f'Settings/ModelSettings/{name_model}')
+        config = self.handle_file_json.load(file_path=f'Settings/ModelSettings/')
         self.set_config_teaching(config)
 
     def get_shapes(self, canvas: Canvas):

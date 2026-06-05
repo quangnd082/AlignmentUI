@@ -44,14 +44,29 @@ class HandleJsonPBA(HandleJSON):
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(new_config, f, indent=4, ensure_ascii=False)
 
-    def load(self, file_path='Settings/ModelSettings/Default'):
+    def load(self, file_path='Settings/ModelSettings'):
+
         config_path = os.path.join(file_path, 'config.json')
+
+        print("Loading:", config_path)
+
         if os.path.exists(config_path):
+
             try:
                 with open(config_path, 'r', encoding='utf-8') as file:
-                    return json.load(file)
-            except json.JSONDecodeError:
+
+                    data = json.load(file)
+
+                    print("Load OK")
+                    return data
+
+            except Exception as e:
+
+                print("Load ERROR:", e)
                 return None
+
+        print("File NOT FOUND")
+
         return None
 
     def update_config_key(self, name_model, key, value, local_path='Settings/ModelSettings'):

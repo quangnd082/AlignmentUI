@@ -432,7 +432,7 @@ def detect_object(name_model, model_ai, image, shapes, threshold, box_threshold,
             offset=(0, 0)
         )
 
-def classify_object(name_model, model_ai, image, shapes, threshold_set, threshold_box):
+def classify_object_1(name_model, model_ai, image, shapes, threshold_set, threshold_box):
     try:
         if shapes is None or not shapes:
             raise ValueError("shapes parameter cannot be None or empty")
@@ -596,6 +596,100 @@ def classify_object(name_model, model_ai, image, shapes, threshold_set, threshol
             timecheck=current_time,
             error=str(e)
         )
+
+
+def classify_object(name_model, model_ai, image):
+
+    try:
+        output_image = image.copy()
+
+        # Predict
+        result = model_ai(image, verbose=False)[0]
+
+        # Lấy class và confidence
+        class_id = result.probs.top1
+        confidence = float(result.probs.top1conf)
+
+        class_name = result.names[class_id]
+
+        # Chuẩn hóa label
+        if class_name.upper() == "OK":
+            label = "OK"
+            color = (0, 255, 0)
+            ret = "PASS"
+        else:
+            label = "NG"
+            color = (0, 0, 255)
+            ret = "FAIL"
+
+        # Vẽ khung toàn màn hình
+        cv2.rectangle(
+            output_image,
+            (0, 0),
+            (output_image.shape[1] - 1, output_image.shape[0] - 1),
+            color,
+            50
+        )
+
+        # Font
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 12
+        thickness = 25
+
+        # Vị trí góc trái trên
+        x = 80
+        y = 300
+
+        # Viền đen cho dễ nhìn
+        cv2.putText(
+            output_image,
+            label,
+            (x, y),
+            font,
+            font_scale,
+            (0, 0, 0),
+            thickness + 15,
+            cv2.LINE_AA
+        )
+
+        # Chữ chính
+        cv2.putText(
+            output_image,
+            label,
+            (x, y),
+            font,
+            font_scale,
+            color,
+            thickness,
+            cv2.LINE_AA
+        )
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        return RESULT(
+            model_name=name_model,
+            src=image,
+            dst=output_image,
+            ret=ret,
+            label_counts=label,
+            timecheck=current_time,
+            error=None
+        )
+
+    except Exception as e:
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        return RESULT(
+            model_name=name_model,
+            src=image,
+            dst=image,
+            ret="FAIL",
+            label_counts="ERROR",
+            timecheck=current_time,
+            error=str(e)
+        )
+
 
 def detect_barcode(name_model, model_ai, image, shapes, threshold):
     try:
